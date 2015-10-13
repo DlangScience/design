@@ -43,10 +43,9 @@
 DlangScience is an attempt to make a productive, widely applicable scientific programming framework for the D programming language.
 
 \subsection*{General overview}
-There are 4 main parts to the project:
+There are 3 main parts to the project:
 \begin{enumerate}
-    \item Bindings to 3rd party libraries from different languages
-    \item Wrappers to make 3rd party libraries easier or more aesthetically pleasing to use from D and specifically within the conventions of DlangScience
+    \item Bindings and wrappers for and ports of 3rd party libraries from different languages, making life easy for users familiar with other software and providing a quick path to lots of features.
     \item SciD, the core package/namespace of DlangScience, containing the building blocks of mathematical calculation on which most scientific programming relies.
     \item Special purpose packages and modules. These would be libraries for e.g.\ plotting, statistics, signals analysis etc.
 \end{enumerate}
@@ -70,9 +69,9 @@ There are 4 main parts to the project:
                 [constants]
                 [special]
             ]
-            [io]
-            [comm]
         ]
+        [io]
+        [comm]
         [statd
             [TODO]
         ]
@@ -89,7 +88,13 @@ There are 4 main parts to the project:
 \end{figure}
 
 \subsubsection*{scid}
-The scid package/namespace will contain the core elements of the DlangScience project, as can be seen in Fig. \ref{packageStructure} it has a similar scope to numpy + some of the less specialist parts of scipy, with the addition of more comprehensive IO and communications/networking.
+The scid package/namespace will contain the core elements of the DlangScience project, as can be seen in Fig. \ref{packageStructure} it has a similar scope to numpy + some of the less specialist parts of scipy.
+
+\subsubsection*{io}
+A generic, unified interface for scientific file-formats. HDF-5 is the important starting point.
+
+\subsubsection*{comm}
+A pleasant abstraction over various message-passing interfaces. There might be a certain amount of API overlap between \mintinline{D}{comm} and \mintinline{D}{io}, seeing as both deal with serialisation of some sort..
 
 \subsubsection*{statd}
 Based on dstats, with components from elsewhere (e.g.\ atmosphere), this package will provide a variety of statistical tests, distributions, sampling algorithms etc.
@@ -109,6 +114,9 @@ There is so much fantastic scientific code out there in other languages. While s
 \subsubsection*{Wrappers}
 C and Fortran APIs are - by and large - pretty awful. D can really help the good underlying work shine with a nice API without sacrificing performance. Additionally, wrappers should enable ``clean'' use with the various data types and APIs in both DlangScience and phobos. Wrappers should be dependant on and separate from bindings.
 
+\subsubsection*{Ports}
+Ports cant take quite a lot of work (and testing!), but in order to help minimise dependencies and take advantage of D features, they can definitely be worth it. \mintinline{D}{scid} already has some in \mintinline{D}{scid.ports}.
+
 \subsubsection*{Others}
 A catch-all for everything else. Domain specific libraries, interfaces to other languages...
 
@@ -126,14 +134,17 @@ This is a difficult topic. There are two important use-cases:
 \subsection{git modules, dub packages, submodules and sub-packages}
 \begin{itemize}
     \item One git repository for each of the top-level packages listed in Fig \ref{packageStructure}, with the exception of the catch-alls at the end, where each individual instance should have its own repo.
-    \item If a module is separately useful, it deserves its own dub sub-package. However, modules that mutually depend on each other (directly or indirectly), no longer fit the ``separately useful'' criteria.    
+    \item If a module is separately useful, it deserves its own dub sub-package. However, modules that mutually depend on each other (directly or indirectly), no longer fit the ``separately useful'' criteria.
     \item A reasonably fine-grained hierarchy of packages and sub-packages will help minimise interdependencies and therefore keep individual parts of DlangScience usable without involving everything else.
     \item The whole of DlangScience (minus any very young packages in alpha/beta) should be released together and be internally consistent on release. master branches should be internally consistent and pass tests at all times.
 \end{itemize}
 
-Splitting everything into separate dub packages (or sub-packages) is really important. It allows people to select finer-grained dependencies, but also grab the whole lot at once for quick work (e.g. have a meta-repo/package that includes many other packages). Pure bindings should be separate dub packages in separate repos\footnote{at least once the binding is reasonably complete}. Wrappers can be for internal use if they're not particularly polished/safe, but if they're going to be publicly visible then they should be their own dub package. Non-dub dependencies should be easy to work-around, i.e.\ large tracts of non-dependant code shouldn't be "polluted" by being packaged with small amounts of dependant code. Seperate packages is better than configuration options, but worst case we can use dub configurations to exclude dependant code.
+Splitting everything into separate dub packages (or sub-packages) is really important. It allows people to select finer-grained dependencies, but also grab the whole lot at once for quick work (e.g. have a meta-repo/package that includes many other packages). Bindings, wrappers and ports should be separate dub packages in separate repos\footnote{at least if they are reasonably complete. No need to create a seperate package for one little convenience function}. Non-dub dependencies should be easy to work-around, i.e.\ large tracts of non-dependant code shouldn't be "polluted" by being packaged with small amounts of dependant code. Seperate packages is better than configuration options, but worst case we can use dub configurations to exclude dependant code.
 
 In extremis we could even have dub packages that are just wrappers for makefiles, even including auto-downloads if necessary. This should only ever be for obscure dependencies that are unlikely to be in people's package managers.
+
+\subsection{Why/when to port?}
+Dependencies are a pain, especially ones in different languages. Langauge barriers make API design harder and prevent optimisations. So, should we always port to D? Where it's sensible. Libraries that are highly optimised and under constant improvement and tuning are a continuous resource that it's easy to become cut off from if you are maintaining a port. Sometimes a binding and a nice wrapper could provide a very similar user experience, while getting modern improvements for free. That said, there's a \emph{lot} of scientific code out there that hasn't seen any changes made in decades, but is still very useful. A port to D could breathe new life in to these old masterpieces (or crusty old wrecks, depending on what you're looking at). In particular, once something is in D it can begin internal changes that allow better APIs that would not be possible with a wrapper or binding., e.g.\ adding support for arbitrary ranges instead of just arrays. As a rule of thumb, bind first, then consider whether a port is necessary.
 
 \section{Extended type functionality}
 We want to be able to perform operations on arbitrary types, but sometimes it isn't as easy as just overloading some operators and then templating things. E.g.\ \mintinline{D}`sin` and other trancendental/special functions require specialised implementations per type. The question is how a generic function finds out when there is a specialised implementation available for use, bearing in mind D's restrictive anti-hijacking rules and not wanting to reimplement all of D's overloading rules. There are a few different options I can think of:
@@ -208,7 +219,7 @@ unittest
 A list of points in no particular order:
 \begin{enumerate}
     \item Abstractions are great, but they should be as transparent, assumption-free and state-free as possible. For example, the user of \mintinline{D}{scid.io} should be able to freely call the HDF-5 C API and modify some part of a file without it invalidating the nice D wrappers they're using elsewhere.
-        
+
     \item D's type system is the key to getting good APIs in D. You have to be able to statically reflect. The first goal of any wrapper project should be to provide type-safety and introduce more explicit typing. The next layer of a wrapper then has \emph{so} much more to work with.
 
     \item Design-by-introspection and functions are preferable to endless named concrete types with functions, which in turn is better than big objects. We're trying to provide a set of tools for \emph{other} people to model reality with, not a bunch of pre-set models. Ranges are the inspiration here, not \mintinline{D}{InputRangeObject}.
@@ -231,10 +242,6 @@ A selection of general-purpose non-linear solvers and optimisers
 The home of the basic import for mathematical functions with specialised overloads
 \subsubsection{special}
 Implementations of the common special functions, as generic as possible. A certain amount of this is already done in \mintinline{D}{scid.functions} and \mintinline{D}{libcerf}. For others it might be worth linking to outside code here, at least temporarily (unless anyone really feels like implementing all those Hankel functions, Airy functions, generalised Fs etc...).
-\subsection{io}
-A generic, unified interface for scientific file-formats. HDF-5 is the important starting point.
-\subsection{comm}
-A pleasant abstraction over various message-passing interfaces.
 
 \section{statd}
 Distributions, sampling etc.
